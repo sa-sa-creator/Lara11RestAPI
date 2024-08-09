@@ -1,3 +1,32 @@
+Work with laravel 11 rest api
+
+# Laravel 11 API CRUD from Scratch
+
+# -stap1: create a model and migration
+
+EX1: products Migration
+Schema::create('products', function (Blueprint $table) {
+$table->id();
+$table->string('name');
+$table->string('desc');
+$table->integer('qty');
+$table->decimal('price');
+$table->timestamps();
+});
+
+EX1: Product Model
+protected $fillable = [
+'name',
+'desc',
+'qty',
+'price',
+];
+==============================
+stap2: create a controller and resource
+==============================
+EX2: ProductController
+==============================
+
 <?php
 
 namespace App\Http\Controllers;
@@ -11,19 +40,10 @@ use Illuminate\Support\Facades\Validator;
 class ProductController extends Controller
 {
 
-    public function index(Request $request)
+    public function index()
     {
-        // $products = Product::get();
-        //search
-        $query = Product::query()->latest('name');
-        $keyword = $request->input('name');
-        if($keyword){
-            $query->where('name','like',"%{$keyword}%");
-        }
-        $products = $query->paginate(5);
-        //end search
-        //check product isEmpty or not
-        if(!$products->isEmpty())
+        $products = Product::get();
+        if($products->count()>0)
         {
             return ProductResource::collection($products);
         }else{
@@ -33,17 +53,6 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
-        //authorize token user must login before
-        $token = $request->bearerToken();
-        if(!$token){
-            return response()->json(
-                [
-                    'massage' => 'Token not exists, please login first',
-                ],
-                401
-            );
-        }
-        //validation
         $validator = Validator::make($request->all(),
         [
             'name'=> 'required|string|max:100',
@@ -60,7 +69,6 @@ class ProductController extends Controller
                 422
             );
         }else{
-            //create
             $product = Product::create([
                 'name' => $request->name,
                 'desc' => $request->desc,
@@ -80,17 +88,6 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product)
     {
-        //authorize token user must login before
-        $token = $request->bearerToken();
-        if(!$token){
-            return response()->json(
-                [
-                    'massage' => 'Token not exists, please login first',
-                ],
-                401
-            );
-        }
-        //validation
         $validator = Validator::make($request->all(),
         [
             'name'=> 'required|string|max:100',
@@ -107,7 +104,6 @@ class ProductController extends Controller
                 422
             );
         }else{
-            //update
             $product->update([
                 'name' => $request->name,
                 'desc' => $request->desc,
@@ -119,22 +115,57 @@ class ProductController extends Controller
         }
     }
 
-    public function destroy(Request $request,Product $product)
+    public function destroy(Product $product)
     {
-        //authorize token user must login before
-        $token = $request->bearerToken();
-        if(!$token){
-            return response()->json(
-                [
-                    'massage' => 'Token not exists, please login first',
-                ],
-                401
-            );
-        }
-        //delete
         $product->delete();
         return response()->json(['massage'=>'Product was deleted'],200);
     }
-
-
 }
+===========================
+
+EX2: ProductResource
+===========================
+<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class ProductResource extends JsonResource
+{
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'name' => $this->name,
+            'desc' => $this->desc,
+            'qty' => $this->qty,
+            'price' => $this->price,
+        ];
+    }
+}
+
+
+==============================
+stap3: create a route api
+==============================
+Route::apiResource('product',ProductController::class);
+
+
+==============================
+stap3: Rendering Exceptions bootstrap/app.php
+==============================
+
+use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+ 
+->withExceptions(function (Exceptions $exceptions) {
+    $exceptions->render(function (NotFoundHttpException $e, Request $request) {
+        if ($request->is('api/*')) {
+            return response()->json([
+                'message' => 'Record not found.'
+            ], 404);
+        }
+    });
+})
